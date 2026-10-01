@@ -19,6 +19,11 @@ EvalFlow is a full-stack recruiter dashboard for evaluating developer candidates
 - JSON export from the dashboard.
 - Professional responsive recruiter UI.
 
+## Project Flowchart
+
+- <img width="8206" height="6775" alt="diagram" src="https://github.com/user-attachments/assets/34e9db7c-c255-46ea-a110-0652d2a7dc83" />
+
+
 ## Run
 
 Install dependencies:
