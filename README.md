@@ -4,6 +4,8 @@ A full-stack recruiter dashboard that evaluates developer candidates from **GitH
 
 **[Live demo(https://evaluation-workflow.onrender.com/))** · hosted on Render's free tier, so the first load can take up to a minute while the server wakes up.
 
+
+## UI
 <img width="2880" height="1548" alt="image" src="https://github.com/user-attachments/assets/c1a91a54-3508-48b7-97c9-3b9edae978fe" />
 
 
@@ -19,8 +21,9 @@ A full-stack recruiter dashboard that evaluates developer candidates from **GitH
 - **Candidate shortlist:** search, reopen, delete and export any evaluation as JSON.
 - **Responsive UI:** built with Tailwind CSS and shadcn/ui.
 
-(<img width="2870" height="1522" alt="image" src="https://github.com/user-attachments/assets/2cd566c8-17c0-45d6-ac8f-2e9993ae191c" />
-)
+## Potential Heatmap
+<img width="2870" height="1522" alt="image" src="https://github.com/user-attachments/assets/2cd566c8-17c0-45d6-ac8f-2e9993ae191c" />
+
 
 ## How scoring works
 
