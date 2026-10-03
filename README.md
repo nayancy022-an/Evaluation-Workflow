@@ -19,7 +19,8 @@ A full-stack recruiter dashboard that evaluates developer candidates from **GitH
 - **Candidate shortlist:** search, reopen, delete and export any evaluation as JSON.
 - **Responsive UI:** built with Tailwind CSS and shadcn/ui.
 
-![Recruitment potential heatmap](docs/screenshots/heatmap.png)
+![Recruitment potential heatmap](<img width="2870" height="1522" alt="image" src="https://github.com/user-attachments/assets/2cd566c8-17c0-45d6-ac8f-2e9993ae191c" />
+)
 
 ## How scoring works
 
