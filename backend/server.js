@@ -1,14 +1,21 @@
+const path = require("node:path");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
+
 const http = require("node:http");
 const fsSync = require("node:fs");
 const fs = require("node:fs/promises");
-const path = require("node:path");
 const { URL } = require("node:url");
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+
+const { connectDb } = require("./db");
+const Evaluation = require("./models/Evaluation");
+const User = require("./models/User");
+const { issueCookie, clearCookie, getUser, publicUser } = require("./auth");
 
 const PORT = Number(process.env.PORT || 3000);
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, "..");
 const STATIC_ROOT = fsSync.existsSync(path.join(ROOT, "dist")) ? path.join(ROOT, "dist") : ROOT;
-const DATA_DIR = path.join(ROOT, "data");
-const SHORTLIST_FILE = path.join(DATA_DIR, "shortlist.json");
 
 const ROLE_KEYWORDS = {
   "Frontend Engineer": ["react", "typescript", "javascript", "accessibility", "performance", "css", "ui", "testing"],
@@ -60,32 +67,30 @@ async function readRequestBody(req) {
   }
 
   const body = Buffer.concat(chunks).toString("utf8");
-  return body ? JSON.parse(body) : {};
-}
-
-async function ensureDataFile() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
   try {
-    await fs.access(SHORTLIST_FILE);
+    return body ? JSON.parse(body) : {};
   } catch {
-    await fs.writeFile(SHORTLIST_FILE, "[]\n", "utf8");
+    throw new HttpError(400, "Request body must be valid JSON.");
   }
 }
 
-async function readShortlist() {
-  await ensureDataFile();
-  const raw = await fs.readFile(SHORTLIST_FILE, "utf8");
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
   }
 }
 
-async function writeShortlist(rows) {
-  await ensureDataFile();
-  await fs.writeFile(SHORTLIST_FILE, `${JSON.stringify(rows, null, 2)}\n`, "utf8");
+function validateCandidate(input = {}) {
+  const name = String(input.name || "").trim();
+  if (!name) throw new HttpError(400, "Candidate name is required.");
+  if (!String(input.resumeText || "").trim()) throw new HttpError(400, "Resume text is required to score a candidate.");
+  const solved = Number(input.leetcodeSolved || 0);
+  const acceptance = Number(input.leetcodeAcceptance || 0);
+  if (!Number.isFinite(solved) || solved < 0) throw new HttpError(400, "LeetCode solved must be a positive number.");
+  if (!Number.isFinite(acceptance) || acceptance < 0 || acceptance > 100) {
+    throw new HttpError(400, "Acceptance rate must be between 0 and 100.");
+  }
 }
 
 function normalizeCandidate(input = {}) {
@@ -197,6 +202,32 @@ function buildCompetencies(scores, candidate, github) {
   };
 }
 
+const POTENTIAL_COLUMNS = ["Resume fit", "GitHub", "LeetCode", "Hire potential"];
+
+// Heatmap data: how likely this candidate is to be recruited for each role.
+function buildPotential(candidate, github, scores) {
+  const rows = Object.keys(ROLE_KEYWORDS).map((role) => {
+    const resume = scoreResume(candidate.resumeText, role);
+    const overall = clamp(scores.github * 0.34 + scores.leetcode * 0.28 + resume * 0.38);
+    return { role, values: [resume, scores.github, scores.leetcode, overall] };
+  });
+  const best = rows.reduce((top, row) => (row.values[3] > top.values[3] ? row : top), rows[0]);
+  const target = rows.find((row) => row.role === candidate.role) || best;
+  const score = target.values[3];
+  // Logistic curve: ~50% chance at a score of 60, saturating towards 0 / 100.
+  const probability = clamp(100 / (1 + Math.exp(-(score - 60) / 10)), 1, 99);
+  const tier = score >= 75 ? "High" : score >= 55 ? "Moderate" : "Low";
+  return {
+    score,
+    probability,
+    tier,
+    targetRole: target.role,
+    bestRole: best.role,
+    columns: POTENTIAL_COLUMNS,
+    rows
+  };
+}
+
 function recommendation(score) {
   if (score >= 84) return "Advance to technical screen";
   if (score >= 72) return "Review with hiring manager";
@@ -228,6 +259,7 @@ function buildAiSummary(candidate, scores, github, keywords) {
 }
 
 async function evaluateCandidate(input) {
+  validateCandidate(input);
   const candidate = normalizeCandidate(input);
   let github;
   let githubWarning = null;
@@ -256,49 +288,134 @@ async function evaluateCandidate(input) {
   const keywords = matchedKeywords(candidate);
 
   return {
-    id: `${candidate.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
     candidate,
     github,
     scores,
     recommendation: recommendation(scores.overall),
     matchedKeywords: keywords,
+    potential: buildPotential(candidate, github, scores),
     ai: buildAiSummary(candidate, scores, github, keywords),
     warnings: githubWarning ? [githubWarning] : [],
     evaluatedAt: new Date().toISOString()
   };
 }
 
-async function upsertEvaluation(evaluation) {
-  const rows = await readShortlist();
-  const key = evaluation.candidate.name.toLowerCase();
-  const existingIndex = rows.findIndex((row) => row.candidate.name.toLowerCase() === key);
-  const nextRows = existingIndex >= 0 ? [...rows.slice(0, existingIndex), evaluation, ...rows.slice(existingIndex + 1)] : [evaluation, ...rows];
-  await writeShortlist(nextRows.slice(0, 50));
-  return nextRows.slice(0, 50);
+async function listEvaluations(owner) {
+  const rows = await Evaluation.find({ owner }).sort({ evaluatedAt: -1 }).limit(50);
+  return rows.map((row) => {
+    const json = row.toJSON();
+    return { ...json, potential: json.potential || buildPotential(json.candidate, json.github, json.scores) };
+  });
+}
+
+// One saved evaluation per candidate name per recruiter; re-submitting updates it.
+async function upsertEvaluation(evaluation, owner) {
+  const existing = await Evaluation.findOne({ owner, "candidate.name": evaluation.candidate.name });
+  if (existing) {
+    existing.set(evaluation);
+    await existing.save();
+    return existing.toJSON();
+  }
+  const created = await Evaluation.create({ ...evaluation, owner });
+  return created.toJSON();
+}
+
+// Simple in-memory limiter for login attempts: 10 tries per 15 minutes per IP + email.
+const loginAttempts = new Map();
+function checkLoginRate(key) {
+  const now = Date.now();
+  const recent = (loginAttempts.get(key) || []).filter((time) => now - time < 15 * 60 * 1000);
+  if (recent.length >= 10) throw new HttpError(429, "Too many login attempts. Try again in 15 minutes.");
+  recent.push(now);
+  loginAttempts.set(key, recent);
 }
 
 async function handleApi(req, res, pathname) {
+  // ---------- Public routes ----------
   if (req.method === "GET" && pathname === "/api/health") {
-    return jsonResponse(res, 200, { ok: true, service: "EvalFlow API", timestamp: new Date().toISOString() });
+    return jsonResponse(res, 200, {
+      ok: true,
+      service: "EvalFlow API",
+      database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+      timestamp: new Date().toISOString()
+    });
   }
 
   if (req.method === "GET" && pathname === "/api/roles") {
     return jsonResponse(res, 200, { roles: Object.keys(ROLE_KEYWORDS), roleKeywords: ROLE_KEYWORDS });
   }
 
+  if (req.method === "POST" && pathname === "/api/auth/register") {
+    const { name, email, password } = await readRequestBody(req);
+    if (!String(name || "").trim() || !/^\S+@\S+\.\S+$/.test(String(email || ""))) {
+      throw new HttpError(400, "Name and a valid email are required.");
+    }
+    if (String(password || "").length < 8) throw new HttpError(400, "Password must be at least 8 characters.");
+    const normalizedEmail = String(email).trim().toLowerCase();
+    if (await User.findOne({ email: normalizedEmail })) {
+      throw new HttpError(409, "That email is already registered.");
+    }
+    const user = await User.create({
+      name: String(name).trim(),
+      email: normalizedEmail,
+      passwordHash: await bcrypt.hash(String(password), 12)
+    });
+    issueCookie(res, user._id);
+    return jsonResponse(res, 201, { user: publicUser(user) });
+  }
+
+  if (req.method === "POST" && pathname === "/api/auth/login") {
+    const { email, password } = await readRequestBody(req);
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    checkLoginRate(`${req.socket.remoteAddress}:${normalizedEmail}`);
+    const user = await User.findOne({ email: normalizedEmail });
+    const valid = user && (await bcrypt.compare(String(password || ""), user.passwordHash));
+    if (!valid) throw new HttpError(401, "Invalid email or password.");
+    issueCookie(res, user._id);
+    return jsonResponse(res, 200, { user: publicUser(user) });
+  }
+
+  if (req.method === "POST" && pathname === "/api/auth/logout") {
+    clearCookie(res);
+    return jsonResponse(res, 200, { ok: true });
+  }
+
+  if (req.method === "GET" && pathname === "/api/auth/me") {
+    const user = await getUser(req);
+    if (!user) throw new HttpError(401, "Not signed in.");
+    return jsonResponse(res, 200, { user: publicUser(user) });
+  }
+
+  // ---------- Protected routes: everything below needs a signed-in user ----------
+  const user = await getUser(req);
+  if (!user) throw new HttpError(401, "Please sign in.");
+  const owner = user._id;
+
   if (req.method === "GET" && pathname === "/api/shortlist") {
-    return jsonResponse(res, 200, { shortlist: await readShortlist() });
+    return jsonResponse(res, 200, { shortlist: await listEvaluations(owner) });
   }
 
   if (req.method === "POST" && pathname === "/api/evaluate") {
     const body = await readRequestBody(req);
     const evaluation = await evaluateCandidate(body.candidate || body);
-    const shortlist = await upsertEvaluation(evaluation);
-    return jsonResponse(res, 200, { evaluation, shortlist });
+    const saved = await upsertEvaluation(evaluation, owner);
+    return jsonResponse(res, 200, { evaluation: saved, shortlist: await listEvaluations(owner) });
+  }
+
+  const candidateMatch = pathname.match(/^\/api\/candidates\/([^/]+)$/);
+  if (candidateMatch) {
+    const id = decodeURIComponent(candidateMatch[1]);
+    const found = mongoose.isValidObjectId(id) ? await Evaluation.findOne({ _id: id, owner }) : null;
+    if (!found) throw new HttpError(404, "Candidate not found.");
+    if (req.method === "GET") return jsonResponse(res, 200, { evaluation: found.toJSON() });
+    if (req.method === "DELETE") {
+      await found.deleteOne();
+      return jsonResponse(res, 200, { shortlist: await listEvaluations(owner) });
+    }
   }
 
   if (req.method === "DELETE" && pathname === "/api/shortlist") {
-    await writeShortlist([]);
+    await Evaluation.deleteMany({ owner });
     return jsonResponse(res, 200, { shortlist: [] });
   }
 
@@ -351,10 +468,19 @@ const server = http.createServer(async (req, res) => {
 
     await serveStatic(req, res, decodeURIComponent(requestUrl.pathname));
   } catch (error) {
-    jsonResponse(res, 500, { error: error.message || "Internal server error." });
+    jsonResponse(res, error.status || 500, { error: error.message || "Internal server error." });
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`EvalFlow full-stack app running at http://localhost:${PORT}`);
+async function start() {
+  if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET is not set. Add it to your .env file.");
+  await connectDb();
+  server.listen(PORT, () => {
+    console.log(`EvalFlow full-stack app running at http://localhost:${PORT}`);
+  });
+}
+
+start().catch((error) => {
+  console.error("Startup failed:", error.message);
+  process.exit(1);
 });

@@ -18,6 +18,8 @@ EvalFlow is a full-stack recruiter dashboard for evaluating developer candidates
 - AI-style transparent rubric summary with strengths, risks, and recommendation.
 - JSON export from the dashboard.
 - Professional responsive recruiter UI.
+- **Recruitment potential heatmap**: after the intake form is submitted, the backend scores the candidate against every role (resume fit, GitHub, LeetCode, overall) and the UI renders a colour-coded role x signal heatmap with an estimated chance of being recruited.
+- Input validation (400 errors) and per-candidate view/remove from the shortlist.
 
 ## Run
 
@@ -72,7 +74,9 @@ npm run check
 GET    /api/health
 GET    /api/roles
 GET    /api/shortlist
-POST   /api/evaluate
+POST   /api/evaluate          -> { evaluation, shortlist }  (evaluation.potential drives the heatmap)
+GET    /api/candidates/:id
+DELETE /api/candidates/:id
 DELETE /api/shortlist
 ```
 
@@ -90,6 +94,15 @@ Example evaluation payload:
     "resumeText": "React, TypeScript, Node.js, PostgreSQL, cloud, testing..."
   }
 }
+```
+
+## Project layout
+
+```text
+backend/server.js   Node API + static server (serves dist/ after a build)
+src/                React app (App.jsx, main.jsx)
+frontend/styles.css Global styles
+data/shortlist.json Persisted evaluations
 ```
 
 ## Production Notes

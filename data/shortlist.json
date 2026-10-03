@@ -1,6 +1,6 @@
 [
   {
-    "id": "nayancy-1781162925594",
+    "id": "nayancy-1790927114390",
     "candidate": {
       "name": "Nayancy",
       "role": "ML Engineer",
@@ -38,6 +38,66 @@
     },
     "recommendation": "Do not advance",
     "matchedKeywords": [],
+    "potential": {
+      "score": 42,
+      "probability": 14,
+      "tier": "Low",
+      "targetRole": "ML Engineer",
+      "bestRole": "Frontend Engineer",
+      "columns": [
+        "Resume fit",
+        "GitHub",
+        "LeetCode",
+        "Hire potential"
+      ],
+      "rows": [
+        {
+          "role": "Frontend Engineer",
+          "values": [
+            93,
+            26,
+            59,
+            61
+          ]
+        },
+        {
+          "role": "Full Stack Engineer",
+          "values": [
+            65,
+            26,
+            59,
+            50
+          ]
+        },
+        {
+          "role": "Backend Engineer",
+          "values": [
+            51,
+            26,
+            59,
+            45
+          ]
+        },
+        {
+          "role": "Data Engineer",
+          "values": [
+            44,
+            26,
+            59,
+            42
+          ]
+        },
+        {
+          "role": "ML Engineer",
+          "values": [
+            44,
+            26,
+            59,
+            42
+          ]
+        }
+      ]
+    },
     "ai": {
       "model": "transparent-rubric-v1",
       "summary": "Nayancy is a do not advance candidate for ML Engineer. Strongest signal: Problem Solving.",
@@ -51,7 +111,7 @@
       ]
     },
     "warnings": [],
-    "evaluatedAt": "2026-06-11T07:28:45.594Z"
+    "evaluatedAt": "2026-10-02T07:45:14.392Z"
   },
   {
     "id": "nisha-rao-1781164929846",
@@ -116,6 +176,66 @@
       ]
     },
     "warnings": [],
-    "evaluatedAt": "2026-06-11T08:02:09.846Z"
+    "evaluatedAt": "2026-06-11T08:02:09.846Z",
+    "potential": {
+      "score": 84,
+      "probability": 89,
+      "tier": "High",
+      "targetRole": "Frontend Engineer",
+      "bestRole": "Frontend Engineer",
+      "columns": [
+        "Resume fit",
+        "GitHub",
+        "LeetCode",
+        "Hire potential"
+      ],
+      "rows": [
+        {
+          "role": "Frontend Engineer",
+          "values": [
+            93,
+            98,
+            53,
+            84
+          ]
+        },
+        {
+          "role": "Full Stack Engineer",
+          "values": [
+            65,
+            98,
+            53,
+            73
+          ]
+        },
+        {
+          "role": "Backend Engineer",
+          "values": [
+            51,
+            98,
+            53,
+            68
+          ]
+        },
+        {
+          "role": "Data Engineer",
+          "values": [
+            44,
+            98,
+            53,
+            65
+          ]
+        },
+        {
+          "role": "ML Engineer",
+          "values": [
+            44,
+            98,
+            53,
+            65
+          ]
+        }
+      ]
+    }
   }
 ]

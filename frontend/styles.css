@@ -1192,3 +1192,51 @@ tr:last-child td { border-bottom: none; }
   body { cursor: auto; }
   .cursor-dot, .cursor-ring { display: none; }
 }
+
+
+/* ---------- Recruitment potential heatmap ---------- */
+.potential-anchor { scroll-margin-top: 16px; }
+.potential-panel { animation: softRise 0.5s var(--ease-out) both; }
+.potential-summary { display: flex; align-items: center; gap: 24px; margin-bottom: 20px; }
+.potential-summary p { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0; max-width: 62ch; }
+.potential-gauge {
+  flex: none; width: 132px; height: 132px; border-radius: 50%;
+  display: grid; place-content: center; text-align: center; position: relative;
+  background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--line-soft) 0);
+}
+.potential-gauge::before { content: ""; position: absolute; inset: 11px; border-radius: 50%; background: var(--panel); }
+.potential-gauge strong, .potential-gauge span { position: relative; }
+.potential-gauge strong { font-size: 28px; font-weight: 800; color: var(--ink); line-height: 1; }
+.potential-gauge span { font-size: 10px; color: var(--muted); max-width: 88px; margin-top: 4px; }
+.tier-pill { padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; }
+.tier-high { background: var(--green); }
+.tier-moderate { background: var(--gold); }
+.tier-low { background: var(--red); }
+.potential-grid { border-collapse: separate; border-spacing: 6px; width: 100%; }
+.potential-grid th { font-size: 12px; font-weight: 700; color: var(--muted); text-align: center; }
+.potential-grid thead th:first-child, .potential-grid tbody th { text-align: left; color: var(--ink); font-size: 13px; white-space: nowrap; }
+.potential-grid tbody th small { display: block; font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; }
+.potential-grid td { padding: 0; }
+.heat-chip {
+  display: grid; place-items: center; min-width: 76px; height: 46px; border-radius: var(--r);
+  color: #fff; font-weight: 800; font-size: 16px; font-variant-numeric: tabular-nums;
+  transition: transform 0.18s var(--ease-out), box-shadow 0.18s;
+}
+.heat-chip:hover { transform: scale(1.06); box-shadow: var(--shadow-md); }
+.potential-grid tr.is-target .heat-chip { outline: 2px solid var(--ink); outline-offset: 2px; }
+.heat-legend { display: flex; align-items: center; gap: 10px; justify-content: flex-end; margin-top: 12px; font-size: 11px; color: var(--muted); }
+.heat-legend i { width: 160px; height: 8px; border-radius: 99px; background: linear-gradient(90deg, hsl(0 60% 42%), hsl(65 60% 40%), hsl(130 60% 36%)); }
+.row-actions { white-space: nowrap; }
+.link-btn { background: none; border: 0; color: var(--accent); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; padding: 4px 6px; }
+.link-btn.danger { color: var(--red); }
+.is-active-row td { background: var(--accent-glow); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 760px) { .potential-summary { flex-direction: column; align-items: flex-start; } }
+
+/* ---------- Auth ---------- */
+.auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.auth-card { width: min(420px, 100%); }
+.auth-card h2 { margin: 6px 0 18px; }
+.auth-error { color: var(--red); font-size: 13px; margin: 0; }
+.sidebar-user { margin-top: auto; display: grid; gap: 8px; padding-top: 16px; }
+.sidebar-user span { color: rgba(236, 248, 244, 0.85); font-size: 13px; font-weight: 600; }

@@ -1,6 +1,6 @@
 const { spawn } = require("node:child_process");
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmCommand = "npm";
 
 async function isServiceHealthy(url) {
   try {
@@ -12,11 +12,10 @@ async function isServiceHealthy(url) {
 }
 
 function startProcess(label, args) {
-  const child = spawn(npmCommand, args, {
+  const child = spawn(`${npmCommand} ${args.join(" ")}`, {
     stdio: "inherit",
-    shell: false,
+    shell: true,
   });
-
   child.on("exit", (code, signal) => {
     if (code === 0 || signal === "SIGINT") {
       return;
